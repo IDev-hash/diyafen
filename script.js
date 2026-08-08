@@ -83,33 +83,67 @@ async function submitOrder(order) {
     throw new Error("URL Apps Script non configurée.");
   }
 
-  const params = new URLSearchParams({
+  // Iframe invisible pour envoyer le POST sans quitter la landing
+  let iframe = document.getElementById("appsScriptTarget");
+
+  if (!iframe) {
+    iframe = document.createElement("iframe");
+    iframe.id = "appsScriptTarget";
+    iframe.name = "appsScriptTarget";
+    iframe.style.display = "none";
+
+    document.body.appendChild(iframe);
+  }
+
+  const form = document.createElement("form");
+
+  form.method = "POST";
+  form.action = SHOP.APPS_SCRIPT_URL;
+  form.target = "appsScriptTarget";
+  form.style.display = "none";
+
+  const fields = {
     name: order.customer.name,
     phone: order.customer.phone,
     city: order.customer.city,
     address: order.customer.address,
     note: order.customer.note || "",
+
     offer: order.items[0].offer,
     quantity: String(order.items[0].quantity),
+
     subtotal: String(order.subtotal),
     deliveryFee: String(order.deliveryFee),
     total: String(order.total),
+
     website: ""
+  };
+
+  Object.entries(fields).forEach(([name, value]) => {
+
+    const input = document.createElement("input");
+
+    input.type = "hidden";
+    input.name = name;
+    input.value = value;
+
+    form.appendChild(input);
   });
 
-  // Apps Script reçoit le POST. Le mode no-cors empêche le navigateur
-  // de lire la réponse, mais n'empêche pas l'envoi.
-  await fetch(SHOP.APPS_SCRIPT_URL, {
-    method: "POST",
-    mode: "no-cors",
-    headers: {
-      "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8"
-    },
-    body: params.toString(),
-    keepalive: true
-  });
+  document.body.appendChild(form);
 
-  localStorage.setItem("lastOrder", JSON.stringify(order));
+  // Envoi réel vers Apps Script
+  form.submit();
+
+  // Sauvegarde locale de secours
+  localStorage.setItem(
+    "lastOrder",
+    JSON.stringify(order)
+  );
+
+  setTimeout(() => {
+    form.remove();
+  }, 1500);
 }
 
 $("orderForm").addEventListener("submit", async event => {
